@@ -1,592 +1,1833 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EduNexa Hub - Premium State Learning Platform</title>
-  
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+import React, { useState, useEffect } from 'react';
+import { 
+  BookOpen, Calendar, Calculator, Users, Bell, 
+  Star, FileText, Zap, ChevronRight, Award, 
+  Menu, X, Lock, Download, MessageSquare, Clock, DollarSign, Eye, Play, Sparkles, TrendingUp, Shield, Plus, CheckCircle, Key, ExternalLink, RefreshCw, Search, Briefcase, Compass, CheckSquare, ShoppingCart, Send, Share2, MessageCircle, BarChart2, Info
+} from 'lucide-react';
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+/* =========================================================================
+   GOOGLE ADSENSE & RAZORPAY CONFIGURATION PLACEHOLDERS
+   =========================================================================
+*/
+const GLOBAL_CONFIG = {
+  ADSENSE_PUBLISHER_ID: "ca-pub-1234567890123456", 
+  RAZORPAY_KEY_ID: "rzp_test_YOUR_RAZORPAY_KEY_HERE", 
+  AD_SLOT_BELOW_HERO: "9876543210",
+  AD_SLOT_SIDEBAR: "1234567890",
+  AD_SLOT_BETWEEN_NOTES: "5432109876",
+  AD_SLOT_ABOVE_FOOTER: "1122334455"
+};
 
-  <style>
-    :root {
-      --glow-color: rgba(99, 102, 241, 0.15);
-      --glass-bg: rgba(15, 23, 42, 0.95);
-      --glass-border: rgba(99, 102, 241, 0.2);
-    }
+export default function App() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+  const [premiumTier, setPremiumTier] = useState('free'); // 'free' | 'silver' | 'gold' | 'platinum'
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
-    body {
-      background-color: #0b1329; /* Dark Indigo/Slate layout */
-      color: #f1f5f9; /* High contrast text */
-    }
+  // --- STUDENT PROFILE AND AUTH (PERSISTENT LOGINS WITH REMEMBER ME) ---
+  const [isStudentLoggedIn, setIsStudentLoggedIn] = useState(false); 
+  const [authMode, setAuthMode] = useState('login'); 
+  const [rememberMe, setRememberMe] = useState(true); // Enabled by default to protect session persistence
 
-    .glass-panel {
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      backdrop-filter: blur(12px);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-    }
+  // Upgraded: points start strictly from 0 as requested
+  const [studentProfile, setStudentProfile] = useState({
+    username: 'rahul_nair',
+    fullName: 'Rahul Nair',
+    phone: '+91 98765 43210', 
+    whatsapp: '+91 98765 43210',
+    email: 'rahul.nair@school.in',
+    school: 'Government Model Boys Higher Secondary School, Trivandrum',
+    grade: 'Plus Two Science',
+    points: 0, // Starts at 0 points
+    referralCode: 'RAHUL150',
+    isPremium: false
+  });
 
-    aside {
-      background-color: #090d16 !important;
-      border-right: 1px solid #1e293b !important;
-    }
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [registerForm, setRegisterForm] = useState({
+    username: '',
+    fullName: '',
+    phone: '', 
+    whatsapp: '',
+    email: '',
+    school: '',
+    grade: 'Plus Two Science',
+    password: ''
+  });
 
-    /* Legible high-contrast dark cards */
-    .light-card {
-      background-color: #111827 !important;
-      border: 1px solid #1e293b !important;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2) !important;
-    }
+  // --- LEAD COLLECTION STATE FOR PREMIUM PLAN ---
+  const [premiumLeadForm, setPremiumLeadForm] = useState({
+    name: '',
+    phone: '',
+    whatsapp: '',
+    email: '',
+    className: '',
+    selectedPlan: 'Gold'
+  });
+  const [leadSubmitted, setLeadSubmitted] = useState(false);
 
-    input, textarea, select {
-      background-color: #090d16 !important;
-      border: 1px solid #334155 !important;
-      color: #f8fafc !important;
-    }
+  // --- REFERRAL PROGRAM STATE ---
+  const [invitedFriends, setInvitedFriends] = useState([
+    { id: 1, name: "Abhijith TVM", status: "Joined", pointsEarned: 2, timestamp: Date.now() - 3600000 },
+    { id: 2, name: "Sneha Kochi", status: "Pending", pointsEarned: 0, timestamp: Date.now() - 7200000 }
+  ]);
+  const [referFriendName, setReferFriendName] = useState("");
 
-    input:focus, textarea:focus, select:focus {
-      border-color: #6366f1 !important;
-      outline: none;
-    }
+  // --- ADMIN LEAD MANAGEMENT & ANALYTICS ---
+  const [leadsList, setLeadsList] = useState([
+    { id: 1, name: "Ananthu J", phone: "9447123456", whatsapp: "9447123456", email: "ananthu@gmail.com", className: "Plus Two Science", plan: "Silver", date: "12-06-2026" },
+    { id: 2, name: "Meera Nair", phone: "9846123456", whatsapp: "9846123456", email: "meera@gmail.com", className: "Class 10", plan: "Platinum", date: "11-06-2026" }
+  ]);
 
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
+  // --- SECURE OWNER CONTROLS ---
+  const [ownerName, setOwnerName] = useState("Platform Director");
+  const [ownerKey, setOwnerKey] = useState("owner2026"); 
+  const [enteredKey, setEnteredKey] = useState("");
+  const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [secretClicks, setSecretClicks] = useState(0);
+
+  // --- OPERATOR CONFIGURATION & METRICS ---
+  const [visitorCount, setVisitorCount] = useState(2580);
+  const [cpmRate, setCpmRate] = useState(240.00); 
+  const [premiumPrice, setPremiumPrice] = useState(299); 
+  const [adsenseId, setAdsenseId] = useState(GLOBAL_CONFIG.ADSENSE_PUBLISHER_ID); 
+
+  // --- UPGRADED: LIVE AD UNIT SLOT CONFIGURATION ---
+  const [adSlotBelowHero, setAdSlotBelowHero] = useState(GLOBAL_CONFIG.AD_SLOT_BELOW_HERO);
+  const [adSlotSidebar, setAdSlotSidebar] = useState(GLOBAL_CONFIG.AD_SLOT_SIDEBAR);
+  const [adSlotBetweenNotes, setAdSlotBetweenNotes] = useState(GLOBAL_CONFIG.AD_SLOT_BETWEEN_NOTES);
+  const [adSlotAboveFooter, setAdSlotAboveFooter] = useState(GLOBAL_CONFIG.AD_SLOT_ABOVE_FOOTER);
+
+  // --- PLATFORM REVENUE ENGINE ---
+  const [adImpressions, setAdImpressions] = useState(324);
+  const [adEarnings, setAdEarnings] = useState(0.78);
+  const [premiumRevenue, setPremiumRevenue] = useState(1445.00); 
+  const [serviceFeeRevenue, setServiceFeeRevenue] = useState(245.00);
+
+  // --- PAID COURSES & COACHING ADS ---
+  const [coursesList, setCoursesList] = useState([
+    { id: 1, title: "Kerala Entrance Masterclass (JEE/NEET)", desc: "Physics & Chemistry shortcut methods by top state educators.", mentor: "Prof. S. Pillai", price: "₹999", duration: "30 Hours" },
+    { id: 2, title: "Class 10 Mathematics Complete Guide", desc: "SCERT Board pattern full syllabus with interactive worksheets.", mentor: "Meenu Krishnan", price: "₹499", duration: "25 Hours" }
+  ]);
+
+  const [coachingAds, setCoachingAds] = useState([
+    { id: 1, institute: "Trivandrum Entrance Academy", offer: "Crash Batch Starts This Monday", phone: "+91 471 25488", location: "East Fort, TVM" },
+    { id: 2, institute: "Kochi Science Hub", offer: "Interactive Practical Batches Available", phone: "+91 484 99558", location: "Kadavanthra, Kochi" }
+  ]);
+
+  // --- SYSTEM POLICY / PLATFORM RULES ---
+  const [platformRules, setPlatformRules] = useState([
+    { id: 1, rule: "Safety First: Never share your account passwords or login keys with any other student companion.", category: "Security" },
+    { id: 2, rule: "Fair Referral Program: Daily limit of maximum 3 referred friends to prevent system misuse. Earn 2 Points per join.", category: "Referrals" },
+    { id: 3, rule: "Academic Integrity: Use AI generated outlines to assist your revisions, not to bypass regular class homework.", category: "AI Policy" },
+    { id: 4, rule: "Healthy Space: No abusive language, violence reference, or inappropriate content is permitted in study groups.", category: "Community Guidelines" }
+  ]);
+
+  // --- CUSTOM TOAST NOTIFICATION ---
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const triggerToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast({ show: false, message: '', type: 'success' });
+    }, 4000);
+  };
+
+  // --- INTRO LOADING SCREEN VISIBILITY TIMEOUT STATE ---
+  const [isIntroLoading, setIsIntroLoading] = useState(true);
+
+  // --- PERSISTENT USER SESSION RETRIEVAL ON MOUNT ---
+  useEffect(() => {
+    // 2.5 seconds of clean professional branding loading screen
+    const loaderTimer = setTimeout(() => {
+      setIsIntroLoading(false);
+      triggerToast("✨ Welcome to EduNexa Lounge Hub!");
+    }, 2500);
+
+    const savedSessionFlag = localStorage.getItem('edunexa_remember_me_flag');
+    const savedProfile = localStorage.getItem('edunexa_active_profile');
+    const savedPremium = localStorage.getItem('edunexa_is_premium');
+    const savedPremiumTier = localStorage.getItem('edunexa_premium_tier');
+
+    if (savedSessionFlag === 'true' && savedProfile) {
+      try {
+        const parsedProfile = JSON.parse(savedProfile);
+        setStudentProfile(parsedProfile);
+        setIsStudentLoggedIn(true);
+        if (savedPremium === 'true') {
+          setIsPremium(true);
+          setPremiumTier(savedPremiumTier || 'gold');
+        }
+      } catch (err) {
+        console.error("Error restoring session data", err);
       }
-      to {
-        opacity: 1;
-        transform: translateY(0);
+    } else {
+      setIsStudentLoggedIn(false);
+    }
+
+    return () => clearTimeout(loaderTimer);
+  }, []);
+
+  const handleSecretClick = () => {
+    setSecretClicks(prev => {
+      const nextClicks = prev + 1;
+      if (nextClicks >= 5) {
+        setActiveTab('operator');
+        setIsOwnerAuthenticated(false); 
+        triggerToast("🤫 Secret Operator Portal Active! Verification required.", "warning");
+        return 0;
+      }
+      return nextClicks;
+    });
+  };
+
+  useEffect(() => {
+    if (secretClicks === 0) return;
+    const timeout = setTimeout(() => {
+      setSecretClicks(0);
+    }, 3000);
+    return () => clearTimeout(timeout);
+  }, [secretClicks]);
+
+  useEffect(() => {
+    if (studentProfile && isStudentLoggedIn) {
+      setResumeForm(prev => ({
+        ...prev,
+        name: studentProfile.fullName || '',
+        school: studentProfile.school || '',
+        phone: studentProfile.phone || prev.phone || ''
+      }));
+      setPremiumLeadForm(prev => ({
+        ...prev,
+        name: studentProfile.fullName || '',
+        phone: studentProfile.phone || '',
+        whatsapp: studentProfile.whatsapp || '',
+        email: studentProfile.email || '',
+        className: studentProfile.grade || 'Plus Two Science',
+        selectedPlan: 'Gold'
+      }));
+
+      if (rememberMe) {
+        localStorage.setItem('edunexa_active_profile', JSON.stringify(studentProfile));
       }
     }
+  }, [studentProfile, isStudentLoggedIn, rememberMe]);
 
-    .animate-slideUp {
-      animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  useEffect(() => {
+    if (isPremium) return;
+    try {
+      const script = document.createElement('script');
+      script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseId}`;
+      script.async = true;
+      script.crossOrigin = "anonymous";
+      document.head.appendChild(script);
+      return () => {
+        document.head.removeChild(script);
+      };
+    } catch (e) {
+      console.warn("AdSense script load mock completed.");
     }
+  }, [adsenseId, isPremium]);
 
-    @keyframes scaleUp {
-      from {
-        opacity: 0;
-        transform: scale(0.95);
+  // Papers database
+  const [papers, setPapers] = useState([
+    { 
+      id: 1, 
+      title: 'Plus Two Physics Previous Year Exam Paper', 
+      board: 'HSSLive Kerala / DHSE', 
+      type: 'Standard', 
+      year: 2024,
+      url: 'https://www.hsslive.in/',
+      content: `DHSE KERALA PLUS TWO PHYSICS PREVIOUS EXAM PAPER (2024)
+=====================================================================
+TIME ALLOWED: 2.5 Hours                             MAXIMUM MARKS: 60`
+    },
+    { 
+      id: 2, 
+      title: 'Class 10 SCERT Mathematics Model Question Pool', 
+      board: 'SCERT Kerala', 
+      type: 'Standard', 
+      year: 2025,
+      url: 'http://www.scert.kerala.gov.in/',
+      content: `SCERT KERALA SSLC MATHEMATICS MODEL QUESTION POOL (2025)
+=====================================================================
+TIME ALLOWED: 2.5 Hours                             MAXIMUM MARKS: 80`
+    }
+  ]);
+
+  const [scholarships, setScholarships] = useState([
+    { id: 1, title: 'National Merit Scholarship Program', amount: '₹50,000', deadline: '2026-08-15', eligibility: 'High School Seniors', description: 'Highly competitive merit-based scholarship for high school seniors demonstrating academic excellence.', url: 'https://www.nationalmerit.org/' },
+    { id: 2, title: 'Women in STEM Grant & Scholarship', amount: '₹25,000', deadline: '2026-09-01', eligibility: 'Female undergraduates in Tech', description: 'Financial grant designed to support and champion female leaders entering computer science and engineering.', url: 'https://swe.org/scholarships/' }
+  ]);
+
+  const [chatMessage, setChatMessage] = useState("");
+  const [groupChat, setGroupChat] = useState([]);
+
+  const [studyPlans, setStudyPlans] = useState([
+    { id: 1, task: "Complete SSLC Math Arithmetic Progressions Chapter", completed: false },
+    { id: 2, task: "Solve Plus Two Physics Electrostatics Past Paper Q6", completed: true }
+  ]);
+
+  // Mock Test Database
+  const mockTestLibrary = [
+    {
+      id: "sslc-math",
+      title: "SSLC Mathematics Speed Mock Test",
+      questions: [
+        { q: "What is the common difference of the sequence: 5, 12, 19, 26...?", options: ["5", "7", "6", "8"], correct: "7" },
+        { q: "The probability of getting a number greater than 4 on throwing a die is:", options: ["1/3", "1/6", "2/3", "1/2"], correct: "1/3" }
+      ],
+      price: 49
+    }
+  ];
+
+  const [selectedMockExam, setSelectedMockExam] = useState(null);
+  const [mockScore, setMockScore] = useState(null);
+  const [mockAnswers, setMockAnswers] = useState({});
+
+  // Resume Form States
+  const [resumeData, setResumeForm] = useState({
+    name: 'Rahul Nair',
+    email: 'rahul.nair@school.in',
+    phone: '+91 98765 43210',
+    school: 'Government Model Boys Higher Secondary School, Trivandrum',
+    board: 'Kerala DHSE / State Board',
+    cgpa: '92%',
+    achievements: 'Awarded 1st Place in Regional Science Olympiad 2025; Active member of School Coding Society',
+    extracurricular: 'Leader of High School Football team; Regular volunteer at local library literacy campaigns',
+    careerAspirations: 'Seeking admission into top-tier Computer Engineering undergraduate courses to build future AI infrastructure.'
+  });
+
+  const [aiPrompt, setAiPrompt] = useState('Light Waves Wavefront derivation');
+  const [aiResult, setAiResult] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiPaperTopic, setAiPaperTopic] = useState('DHSE Organic Chemistry Electrophiles');
+  const [isGeneratingPaper, setIsGeneratingPaper] = useState(false);
+  const [searchTargetYear, setSearchTargetYear] = useState('2025');
+  const [isSyncingScholarships, setIsSyncingScholarships] = useState(false);
+
+  // Operator input states
+  const [newPaper, setNewPaper] = useState({ title: '', board: 'DHSE Kerala', year: '2026', content: '', url: '' });
+  const [newSchol, setNewSchol] = useState({ title: '', amount: '', deadline: '', eligibility: '', description: '', url: '' });
+
+  // Countdown / GPA states
+  const [examDate, setExamDate] = useState('2027-03-10');
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, mins: 0, secs: 0 });
+  const [calcData, setCalcData] = useState({ obtained: '540', total: '600', result: null });
+  const [viewingPaper, setViewingPaper] = useState(null);
+
+  const sampleAiDatabase = {
+    optics: `## Plus Two Physics: Wave Optics Study Notes\n\n### 1. Wavefront\nA wavefront is defined as the locus of all points in a medium vibrating in the same phase.\n\n### 2. Huygens' Principle\n* Each point on a given wavefront acts as a source of secondary disturbance (secondary wavelets).`,
+    organic: `## Chemistry: Organic Electrophilic Substitutions\n\n### 1. Electrophiles\nThese are electron-deficient species containing an atom with an incomplete octet or positive charge.`,
+    math: `## SSLC Mathematics: Circle Theorems & Area Relations\n\n### Theorem 1\nThe angle subtended by an arc of a circle at its center is double the angle subtended by it at any point on the remaining part of the circle.`
+  };
+
+  // Passive traffic simulator
+  useEffect(() => {
+    if (isPremium) return;
+    const interval = setInterval(() => {
+      const passiveImpressions = Math.floor((visitorCount / 400) * (Math.random() * 3 + 1));
+      if (passiveImpressions > 0) {
+        setAdImpressions(prev => {
+          const newVal = prev + passiveImpressions;
+          setAdEarnings(Number((newVal * (cpmRate / 1000)).toFixed(2));
+          return newVal;
+        });
       }
-      to {
-        opacity: 1;
-        transform: scale(1);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [visitorCount, cpmRate, isPremium]);
+
+  // Click based traffic simulation
+  useEffect(() => {
+    if (isPremium) return;
+    const clickImpressions = Math.floor(Math.random() * 2) + 1;
+    setAdImpressions(prev => {
+      const newVal = prev + clickImpressions;
+      setAdEarnings(Number((newVal * (cpmRate / 1000)).toFixed(2));
+      return newVal;
+    });
+  }, [activeTab, isPremium, cpmRate]);
+
+  // Target countdown timer
+  useEffect(() => {
+    if (!examDate) return;
+    const timer = setInterval(() => {
+      const difference = +new Date(examDate) - +new Date();
+      if (difference <= 0) {
+        setTimeLeft({ days: 0, hours: 0, mins: 0, secs: 0 });
+        clearInterval(timer);
+        return;
       }
+      setTimeLeft({
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+        mins: Math.floor((difference / 1000 / 60) % 60),
+        secs: Math.floor((difference / 1000) % 60)
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [examDate]);
+
+  const handleExternalRedirect = (targetUrl) => {
+    if (targetUrl) {
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      triggerToast("Redirecting safely to resource...");
+    } else {
+      triggerToast("Reference link not configured.", "error");
+    }
+  };
+
+  const handleApplyNowRedirect = (schol) => {
+    if (schol.url) {
+      window.open(schol.url, '_blank', 'noopener,noreferrer');
+      triggerToast(`Redirecting to portal: ${schol.title}...`);
+    } else {
+      triggerToast("Official URL not found.", "error");
+    }
+  };
+
+  const triggerDownload = (filename, textContent) => {
+    const element = document.createElement("a");
+    const file = new Blob([textContent], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = filename;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  const handleStudentLoginSubmit = (e) => {
+    e.preventDefault();
+    if (!loginForm.username) {
+      triggerToast("Please enter your username", "error");
+      return;
+    }
+    const profile = {
+      username: loginForm.username.trim().toLowerCase(),
+      fullName: loginForm.username === 'rahul_nair' ? 'Rahul Nair' : loginForm.username.toUpperCase(),
+      phone: loginForm.username === 'rahul_nair' ? '+91 98765 43210' : '+91 90000 00000',
+      whatsapp: loginForm.username === 'rahul_nair' ? '+91 98765 43210' : '+91 90000 00000',
+      email: loginForm.username === 'rahul_nair' ? 'rahul.nair@school.in' : 'student@eduhub.com',
+      school: 'Government Model Boys Higher Secondary School, Trivandrum',
+      grade: 'Plus Two Science',
+      points: 0,
+      referralCode: 'STUDENT101',
+      isPremium: isPremium
+    };
+
+    setStudentProfile(profile);
+    setIsStudentLoggedIn(true);
+
+    if (rememberMe) {
+      localStorage.setItem('edunexa_remember_me_flag', 'true');
+      localStorage.setItem('edunexa_active_profile', JSON.stringify(profile));
+      localStorage.setItem('edunexa_is_premium', isPremium ? 'true' : 'false');
+      localStorage.setItem('edunexa_premium_tier', premiumTier);
+    } else {
+      localStorage.removeItem('edunexa_remember_me_flag');
+      localStorage.removeItem('edunexa_active_profile');
     }
 
-    .animate-scaleUp {
-      animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    triggerToast(`Welcome back, ${profile.fullName}! Login session is now active.`);
+  };
+
+  const handleStudentRegisterSubmit = (e) => {
+    e.preventDefault();
+    if (!registerForm.username || !registerForm.fullName || !registerForm.phone) {
+      triggerToast("Please fill all required registration fields.", "error");
+      return;
+    }
+    
+    const profile = {
+      username: registerForm.username.trim().toLowerCase(),
+      fullName: registerForm.fullName,
+      phone: registerForm.phone, 
+      whatsapp: registerForm.whatsapp || registerForm.phone,
+      email: registerForm.email || 'student@edunexa.com',
+      school: registerForm.school || "Govt School, Kerala",
+      grade: registerForm.grade,
+      points: 0,
+      referralCode: registerForm.username.trim().toUpperCase() + '100',
+      isPremium: false
+    };
+    
+    setStudentProfile(profile);
+    setIsStudentLoggedIn(true);
+
+    if (rememberMe) {
+      localStorage.setItem('edunexa_remember_me_flag', 'true');
+      localStorage.setItem('edunexa_active_profile', JSON.stringify(profile));
     }
 
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
+    triggerToast(`Welcome to the portal, ${profile.fullName}! Your profile has been registered.`);
+  };
 
-    ::-webkit-scrollbar-track {
-      background: #090d16;
-    }
+  const handleProfileLogout = () => {
+    setIsStudentLoggedIn(false);
+    setIsPremium(false);
+    setPremiumTier('free');
+    localStorage.removeItem('edunexa_remember_me_flag');
+    localStorage.removeItem('edunexa_active_profile');
+    localStorage.removeItem('edunexa_is_premium');
+    localStorage.removeItem('edunexa_premium_tier');
+    triggerToast("Logged out successfully. Persistent session cleared.");
+  };
 
-    ::-webkit-scrollbar-thumb {
-      background: #1e293b;
-      border-radius: 9999px;
-    }
+  const triggerRazorpayCheckout = (planName, planPrice, tierKey) => {
+    triggerToast(`Initializing Razorpay payment for ${planName} Plan (₹${planPrice})...`);
 
-    ::-webkit-scrollbar-thumb:hover {
-      background: #4f46e5;
-    }
-  </style>
-</head>
-<body class="bg-[#0b1329] text-[#f1f5f9] font-sans selection:bg-indigo-500 selection:text-white">
-
-  <div id="toast-alert" class="fixed bottom-5 right-5 z-50 hidden transition-all duration-300 animate-slideUp">
-    <div id="toast-box" class="p-4 rounded-xl shadow-lg flex items-center space-x-2 border text-white bg-emerald-600 border-emerald-700">
-      <i id="toast-icon" class="fa-solid fa-circle-check"></i>
-      <span id="toast-message" class="text-sm font-semibold"></span>
-    </div>
-  </div>
-
-  <div id="delete-confirm-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex justify-center items-center p-4 hidden">
-    <div class="bg-[#111827] border border-red-500/30 rounded-2xl shadow-2xl max-w-md w-full p-6 relative text-left animate-scaleUp">
-      <div class="text-center space-y-3">
-        <div class="mx-auto w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
-          <i class="fa-solid fa-triangle-exclamation text-xl"></i>
-        </div>
-        <h3 class="text-lg font-black text-white">Ensure Deletion</h3>
-        <p class="text-xs text-slate-300 leading-relaxed">
-          Are you sure you want to permanently delete <strong id="delete-item-title" class="text-red-400"></strong>? This operational action cannot be undone.
-        </p>
-      </div>
-      <div class="flex space-x-3 mt-6">
-        <button onclick="cancelDelete()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold py-2.5 rounded-xl transition-all">
-          Cancel
-        </button>
-        <button onclick="confirmDelete()" class="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2.5 rounded-xl transition-all shadow-md">
-          Yes, Delete
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div id="premium-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex justify-center items-center p-4 overflow-y-auto hidden">
-    <div class="bg-[#111827] border border-indigo-500/30 rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative text-left animate-scaleUp">
+    setTimeout(() => {
+      const newLead = {
+        id: leadsList.length + 1,
+        name: premiumLeadForm.name,
+        phone: premiumLeadForm.phone,
+        whatsapp: premiumLeadForm.whatsapp,
+        email: premiumLeadForm.email,
+        className: premiumLeadForm.className,
+        plan: planName,
+        date: "12-06-2026"
+      };
+      setLeadsList([newLead, ...leadsList]);
       
-      <button onclick="closePremiumModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-200">
-        <i class="fa-solid fa-xmark text-xl"></i>
-      </button>
+      setIsPremium(true);
+      setPremiumTier(tierKey);
+      setStudentProfile({ ...studentProfile, isPremium: true });
+      setPremiumRevenue(prev => Number((prev + planPrice).toFixed(2))); 
+      setLeadSubmitted(true);
+      triggerToast(`🎉 Payment Successfully Received via Razorpay!`);
+    }, 1500);
+  };
 
-      <div id="modal-step-lead" class="space-y-6">
-        <div class="text-center space-y-2">
-          <div class="mx-auto w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400">
-            <i class="fa-solid fa-star text-xl animate-pulse"></i>
-          </div>
-          <h3 class="text-xl font-black text-white">Join EduNexa Premium Club</h3>
-          <p class="text-xs text-slate-300">Syllabus crash prep courses, ad-free downloads, and continuous expert support channels.</p>
-        </div>
+  const handleLeadSubmit = (e) => {
+    e.preventDefault();
+    if (!premiumLeadForm.name || !premiumLeadForm.phone || !premiumLeadForm.whatsapp) {
+      triggerToast("Please fill all contact numbers.", "error");
+      return;
+    }
+    const currentPrice = premiumLeadForm.selectedPlan === 'Silver' ? 149 : premiumLeadForm.selectedPlan === 'Gold' ? 299 : 499;
+    const tierKey = premiumLeadForm.selectedPlan.toLowerCase();
+    
+    triggerRazorpayCheckout(premiumLeadForm.selectedPlan, currentPrice, tierKey);
+  };
 
-        <div class="grid grid-cols-3 gap-2.5">
-          <button type="button" onclick="selectPlanTier('Silver')" id="btn-tier-Silver" class="p-3 rounded-xl border text-center transition-all bg-[#090d16] border-slate-700 text-slate-300 hover:border-indigo-400">
-            <span class="text-[10px] block uppercase tracking-wider">Silver</span>
-            <span class="text-sm font-bold block">₹149</span>
-          </button>
-          <button type="button" onclick="selectPlanTier('Gold')" id="btn-tier-Gold" class="p-3 rounded-xl border text-center transition-all bg-indigo-600 border-indigo-400 text-white font-black shadow-md">
-            <span class="text-[10px] block uppercase tracking-wider">Gold</span>
-            <span class="text-sm font-bold block">₹299</span>
-          </button>
-          <button type="button" onclick="selectPlanTier('Platinum')" id="btn-tier-Platinum" class="p-3 rounded-xl border text-center transition-all bg-[#090d16] border-slate-700 text-slate-300 hover:border-indigo-400">
-            <span class="text-[10px] block uppercase tracking-wider">Platinum</span>
-            <span class="text-sm font-bold block">₹499</span>
-          </button>
-        </div>
+  const handleInviteFriend = (e) => {
+    e.preventDefault();
+    if (!referFriendName.trim()) return;
 
-        <div class="bg-indigo-950/40 border border-indigo-500/20 p-4 rounded-xl space-y-2">
-          <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest block">
-            Uniquely Unlocked with <span id="display-selected-plan-name" class="underline">Gold</span> Tier:
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const invitesTodayCount = invitedFriends.filter(
+      friend => friend.status === "Invited" && friend.timestamp > oneDayAgo
+    ).length;
+
+    if (invitesTodayCount >= 3) {
+      triggerToast("Daily invite limit reached! You can only invite 3 friends per 24 hours.", "error");
+      return;
+    }
+
+    const newFriend = {
+      id: invitedFriends.length + 1,
+      name: referFriendName,
+      status: "Invited",
+      pointsEarned: 2, 
+      timestamp: Date.now()
+    };
+
+    setInvitedFriends([...invitedFriends, newFriend]);
+    setReferFriendName("");
+    
+    setStudentProfile(prev => {
+      const updatedPoints = prev.points + 2; 
+      triggerToast(`🎉 2 reward points successfully credited for referring ${referFriendName}!`);
+      return { ...prev, points: updatedPoints };
+    });
+  };
+
+  const redeemPointsForPremium = () => {
+    if (studentProfile.points < 450) {
+      triggerToast("Sufficient points is not available. (You need 450 points to redeem 1 Month Premium).", "error");
+      return;
+    }
+    setStudentProfile(prev => ({ ...prev, points: prev.points - 450 }));
+    setIsPremium(true);
+    setPremiumTier('silver');
+    triggerToast("🎉 Congratulations! You have redeemed 450 points for 1 Month of Silver Access.");
+  };
+
+  const downloadStudentResume = () => {
+    setServiceFeeRevenue(prev => Number((prev + 49).toFixed(2)));
+    const formatted = `ACADEMIC PORTFOLIO: ${resumeData.name}\n============================================\nEmail: ${resumeData.email}\nPhone: ${resumeData.phone}\nInstitution: ${resumeData.school}\nCGPA: ${resumeData.cgpa}`;
+    triggerDownload(`Resume_${resumeData.name.replace(/\s+/g, '_')}.txt`, formatted);
+    triggerToast("📄 Academic portfolio successfully generated!");
+  };
+
+  const submitMockTest = () => {
+    let score = 0;
+    selectedMockExam.questions.forEach((q, idx) => {
+      if (mockAnswers[idx] === q.correct) {
+        score += 1;
+      }
+    });
+    setMockScore({ score, total: selectedMockExam.questions.length });
+    triggerToast("🎉 Evaluation complete!");
+  };
+
+  const sendGroupMessage = (e) => {
+    e.preventDefault();
+    if (!chatMessage.trim()) return;
+    const newMsg = { sender: `${studentProfile.fullName} (You)`, text: chatMessage, time: "Just Now" };
+    setGroupChat([...groupChat, newMsg]);
+    setChatMessage("");
+    triggerToast("Message sent.");
+  };
+
+  const handlePlanToggle = (planId) => {
+    setStudyPlans(studyPlans.map(plan => 
+      plan.id === planId ? { ...plan, completed: !plan.completed } : plan
+    ));
+    triggerToast("Checklist updated.");
+  };
+
+  const triggerAINotesGeneration = () => {
+    if (!aiPrompt.trim()) {
+      triggerToast("Please select a topic description first.", "error");
+      return;
+    }
+    setIsGenerating(true);
+    setAiResult("");
+    setTimeout(() => {
+      const searchKey = aiPrompt.toLowerCase();
+      let matchedContent = `## Syllabus Study Outline: ${aiPrompt}\n\nKey definitions and board blueprints are mapped locally under SCERT guidelines.`;
+      if (searchKey.includes("light") || searchKey.includes("optics") || searchKey.includes("wave")) matchedContent = sampleAiDatabase.optics;
+      else if (searchKey.includes("organic") || searchKey.includes("chem")) matchedContent = sampleAiDatabase.organic;
+      else if (searchKey.includes("circle") || searchKey.includes("math")) matchedContent = sampleAiDatabase.math;
+      setAiResult(matchedContent);
+      setIsGenerating(false);
+      triggerToast("✨ Custom AI study notes prepared!");
+    }, 1200);
+  };
+
+  const triggerScholarshipSync = () => {
+    setIsSyncingScholarships(true);
+    setTimeout(() => {
+      const synced = [
+        ...scholarships,
+        { id: scholarships.length + 1, title: 'Kerala Higher Education Scholarship Scheme', amount: '₹12,000 / Yr', deadline: '2026-11-15', eligibility: 'Degree students in Govt colleges', description: 'Assistance by Kerala State Higher Education Council.', url: 'http://www.kshec.kerala.gov.in/' }
+      ];
+      setScholarships(synced);
+      setIsSyncingScholarships(false);
+      triggerToast("🔄 Scholarships updated successfully.");
+    }, 1200);
+  };
+
+  const handleAddPaper = (e) => {
+    e.preventDefault();
+    const added = {
+      id: papers.length + 1,
+      title: newPaper.title,
+      board: newPaper.board,
+      type: 'Custom Added',
+      year: parseInt(newPaper.year),
+      content: newPaper.content,
+      url: newPaper.url
+    };
+    setPapers([added, ...papers]);
+    setNewPaper({ title: '', board: 'DHSE Kerala', year: '2026', content: '', url: '' });
+    triggerToast("Success! Question paper imported.");
+  };
+
+  const handleOwnerLogin = (e) => {
+    e.preventDefault();
+    if (enteredKey === ownerKey) {
+      setIsOwnerAuthenticated(true);
+      setAuthError("");
+      triggerToast("Access Granted. Welcome Administrator.");
+      setActiveTab('operator');
+    } else {
+      setAuthError("Incorrect Secret Key. Access Denied.");
+      triggerToast("Verification failed", "error");
+    }
+  };
+
+  const handleOwnerLogout = () => {
+    setIsOwnerAuthenticated(false);
+    setEnteredKey("");
+    setActiveTab("dashboard");
+    triggerToast("Control station locked.");
+  };
+
+  const runGpaCalculator = () => {
+    const percentage = (parseFloat(calcData.obtained) / parseFloat(calcData.total)) * 100;
+    let grade = percentage >= 90 ? 'A+' : percentage >= 80 ? 'A' : 'B';
+    setCalcData({ ...calcData, result: { percentage: percentage.toFixed(1), grade } });
+    triggerToast("Evaluation Computed!");
+  };
+
+  const AdBanner = ({ size = 'banner', slotId }) => {
+    if (isPremium) return null;
+    return (
+      <div className="w-full my-4 text-left">
+        <div className="bg-slate-900 border border-[#1e293b] rounded-xl p-4 flex flex-col justify-center items-center relative overflow-hidden transition-all hover:border-indigo-500">
+          <span className="absolute top-1 right-2 bg-slate-800 text-indigo-400 text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider">
+            Sponsored Slot
           </span>
-          <div id="dynamic-benefits-container" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-300">
-            <div><i class="fa-solid fa-circle-check text-indigo-400 mr-1"></i> Interactive Live Classes</div>
-            <div><i class="fa-solid fa-circle-check text-indigo-400 mr-1"></i> Chapter-wise Sample Papers</div>
+          <div className="text-center space-y-1 w-full">
+            <ins className="adsbygoogle"
+                 style={{ display: "block" }}
+                 data-ad-client={adsenseId}
+                 data-ad-slot={slotId}
+                 data-ad-format="auto"
+                 data-full-width-responsive="true">
+            </ins>
+            <div className="flex items-center justify-center gap-1.5 pt-1">
+              <DollarSign className="text-emerald-500" size={12} />
+              <p className="text-[11px] font-bold text-slate-300">Google AdSense Partner Unit</p>
+            </div>
+            <p className="text-[9px] text-slate-505 font-mono">
+              Publisher ID: <span className="text-indigo-400">{adsenseId}</span> | Unit Slot ID: <span className="text-indigo-400">{slotId}</span>
+            </p>
           </div>
         </div>
+      </div>
+    );
+  };
 
-        <form id="lead-submission-form" onsubmit="handleLeadFormSubmit(event)" class="space-y-3.5">
-          <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Fill Contact Details to Choose Payment Plan</h4>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="text-[10px] font-bold text-slate-400 block mb-1">Student Full Name</label>
-              <input type="text" id="lead-name" class="w-full text-xs rounded-lg p-2.5 outline-none focus:border-indigo-500" required>
-            </div>
-            <div>
-              <label class="text-[10px] font-bold text-slate-400 block mb-1">Email Address</label>
-              <input type="email" id="lead-email" class="w-full text-xs rounded-lg p-2.5 outline-none focus:border-indigo-500" required>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label class="text-[10px] font-bold text-slate-400 block mb-1">Phone Number</label>
-              <input type="tel" id="lead-phone" class="w-full text-xs rounded-lg p-2.5 outline-none focus:border-indigo-500" required>
-            </div>
-            <div>
-              <label class="text-[10px] font-bold text-slate-400 block mb-1">WhatsApp Number</label>
-              <input type="tel" id="lead-whatsapp" class="w-full text-xs rounded-lg p-2.5 outline-none focus:border-indigo-500">
-            </div>
-            <div>
-              <label class="text-[10px] font-bold text-slate-400 block mb-1">Class / Batch</label>
-              <input type="text" id="lead-class" class="w-full text-xs rounded-lg p-2.5 outline-none focus:border-indigo-500" required>
-            </div>
-          </div>
-
-          <button type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-1">
-            <i class="fa-solid fa-lock text-xs mr-1"></i>
-            <span>Securely Pay via Razorpay Integration</span>
+  const Navigation = () => (
+    <nav className="space-y-1 text-sm font-medium">
+      {[
+        { id: 'dashboard', icon: BookOpen, label: 'Dashboard' },
+        { id: 'ai-notes', icon: Zap, label: 'AI Study Gen' },
+        { id: 'papers', icon: FileText, label: 'Kerala Model Papers' },
+        { id: 'mock-tests', icon: Play, label: 'Online Mock Tests' },
+        { id: 'groups', icon: Users, label: 'Circle Chat' }, 
+        { id: 'courses', icon: Play, label: 'EduNexa Academy (Paid)' },
+        { id: 'referrals', icon: Share2, label: 'Referral Hub (Points)' },
+        { id: 'portfolio', icon: Briefcase, label: 'Resume & Portfolio' },
+        { id: 'scholarships', icon: Bell, label: 'Scholarships List' },
+        { id: 'tools', icon: Calculator, label: 'Mark Analyzer & Timer' }
+      ].map((item) => {
+        const IconComponent = item.icon || Users; 
+        const displayLabel = item.label || 'Circle Chat';
+        return (
+          <button
+            key={item.id}
+            onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
+            className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-all ${
+              activeTab === item.id ? 'bg-[#4f46e5] text-white shadow-md' : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+            }`}
+          >
+            <IconComponent size={18} />
+            <span>{displayLabel}</span>
           </button>
-        </form>
+        );
+      })}
 
-        <div class="bg-indigo-950/40 p-3 rounded-xl border border-indigo-900/30">
-          <p class="text-[11px] text-slate-300 italic">"I unlocked Silver premium access through our referral rewards system. The past entrance papers and physics prep notes have been incredibly helpful!"</p>
-          <span class="text-[9px] text-slate-400 block text-right mt-1">- Karthika, Plus Two Science Student, Kochi</span>
-        </div>
+      <div className="px-2 pt-4 hidden md:block">
+        <AdBanner size="sidebar" slotId={adSlotSidebar} />
       </div>
 
-      <div id="modal-step-success" class="text-center space-y-6 py-6 hidden animate-slideUp">
-        <div class="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-          <i class="fa-solid fa-circle-check text-3xl"></i>
-        </div>
-        <div class="space-y-2">
-          <h3 class="text-lg font-black text-white">Application Received Successfully!</h3>
-          <p class="text-xs text-slate-300">Our admissions and premium enrollment team has registered your interest.</p>
-        </div>
-
-        <div class="space-y-3 pt-2">
-          <p class="text-[11px] text-slate-400">Click below to communicate directly with our academic advisors via WhatsApp:</p>
-          <a id="whatsapp-direct-link" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow">
-            <i class="fa-brands fa-whatsapp text-lg"></i>
-            <span>Contact Support via WhatsApp</span>
-          </a>
-        </div>
-
-        <div class="pt-4">
-          <button onclick="closePremiumModal()" class="text-xs text-slate-500 underline">
-            Go Back to Lounge
-          </button>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <div class="min-h-screen bg-[#0b1329] text-slate-100 flex flex-col md:flex-row font-sans">
-
-    <div class="md:hidden bg-[#090d16] p-4 flex justify-between items-center sticky top-0 z-20 border-b border-indigo-950">
-      <div class="flex items-center space-x-2 text-indigo-400 font-bold text-xl cursor-pointer" onclick="navigateToTab('dashboard')">
-        <i class="fa-solid fa-book-open"></i>
-        <span>EduNexa Hub</span>
-      </div>
-      <button onclick="toggleMobileSidebar()" class="text-slate-400">
-        <i id="mobile-menu-icon" class="fa-solid fa-bars text-xl"></i>
-      </button>
-    </div>
-
-    <aside id="sidebar" class="hidden md:block md:w-64 bg-[#090d16] border-r border-indigo-955 h-screen sticky top-0 flex-shrink-0 p-4 shadow-sm overflow-y-auto z-10">
-      <div class="hidden md:flex items-center space-x-2 text-indigo-400 font-bold text-lg mb-6 px-2 mt-2 cursor-pointer select-none" onclick="navigateToTab('dashboard')">
-        <i class="fa-solid fa-book-open animate-pulse text-indigo-400"></i>
-        <span>EduNexa Hub</span>
-      </div>
-
-      <nav id="nav-container" class="space-y-1 text-sm font-medium">
-        <button onclick="navigateToTab('dashboard')" id="nav-dashboard" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg bg-indigo-600/20 text-indigo-400 font-bold transition-all text-left">
-          <i class="fa-solid fa-gauge"></i> <span>Dashboard</span>
+      {isOwnerAuthenticated && (
+        <button
+          onClick={() => { setActiveTab('operator'); setIsMobileMenuOpen(false); }}
+          className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border border-dashed transition-all mt-4 ${
+            activeTab === 'operator' 
+              ? 'bg-slate-950 border-slate-900 text-white' 
+              : 'border-emerald-500 text-emerald-400 hover:bg-slate-900'
+          }`}
+        >
+          <div className="flex items-center space-x-2">
+            <Shield size={16} className="text-emerald-500 animate-pulse" />
+            <span className="font-bold text-xs">Operator Control Room</span>
+          </div>
+          <span className="text-[9px] bg-emerald-500 text-white px-1 py-0.5 rounded font-bold">LIVE</span>
         </button>
-        <button onclick="navigateToTab('ai-notes')" id="nav-ai-notes" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-200 transition-all text-left">
-          <i class="fa-solid fa-sparkles"></i> <span>AI Study Notes</span>
-        </button>
-        <button onclick="navigateToTab('papers')" id="nav-papers" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-200 transition-all text-left">
-          <i class="fa-solid fa-file-pdf"></i> <span>Model Papers</span>
-        </button>
-      </nav>
-
-      <div id="sidebar-ad-placement" class="px-2 pt-4 hidden md:block"></div>
-
-      <div id="premium-sidebar-widget" class="mt-6 p-4 bg-gradient-to-br from-indigo-950 to-indigo-900 rounded-xl border border-indigo-850 text-left">
-        <div class="flex items-center space-x-1.5 text-amber-400 font-bold text-xs mb-1">
-          <i class="fa-solid fa-star"></i>
-          <span>Premium Membership</span>
-        </div>
-        <p class="text-[11px] text-slate-300 mb-3 font-semibold">No Ads, unlimited study resources, and master revision support.</p>
-        <button onclick="openPremiumModal()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold py-2 rounded-lg transition-all shadow">
-          Upgrade Plan
-        </button>
-      </div>
-    </aside>
-
-    <main class="flex-1 p-4 md:p-6 overflow-y-auto max-w-6xl mx-auto w-full flex flex-col justify-between">
+      )}
       
-      <div class="space-y-6">
-        
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 bg-[#090d16] p-4 rounded-xl border border-indigo-950 gap-4 text-left">
-          <div>
-            <div class="flex items-center gap-1.5">
-              <span id="role-badge" class="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                Student Lounge
-              </span>
-              <span class="text-xs text-slate-300 font-bold">Representative Director: <strong class="text-indigo-400">Platform Director</strong></span>
-            </div>
-            <h1 id="active-tab-title" class="text-xl font-black text-white capitalize flex items-center mt-1">
-              Dashboard
-            </h1>
+      {!isPremium && (
+        <div className="mt-6 p-4 bg-gradient-to-br from-indigo-955 to-indigo-900 rounded-xl border border-indigo-800 text-left">
+          <div className="flex items-center space-x-1.5 text-amber-400 font-bold text-xs mb-1">
+            <Star size={16} className="fill-amber-400 text-amber-500" />
+            <span>Premium Membership</span>
           </div>
-
-          <div class="flex items-center space-x-2">
-            <span id="premium-status-indicator" class="hidden flex items-center bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full text-xs font-bold border border-amber-500/30">
-              <i class="fa-solid fa-star mr-1 text-amber-500 animate-spin"></i> Premium: Gold
-            </span>
-
-            <div class="flex items-center space-x-2 bg-slate-950 border border-indigo-955 p-1.5 rounded-lg text-right">
-              <div>
-                <p id="profile-full-name" class="text-xs font-bold text-slate-200">Rahul Nair</p>
-                <p id="profile-sub-detail" class="text-[9px] text-amber-400 font-bold">Points: 0 Pts</p>
-              </div>
-              <button onclick="handleProfileLogout()" class="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white px-2.5 py-1.5 rounded font-bold transition-all ml-2 border border-slate-700">
-                Logout
-              </button>
-            </div>
-          </div>
+          <p className="text-[11px] text-slate-300 mb-3">No Ads, unlimited study resources, and master revision support.</p>
+          <button 
+            onClick={() => { setLeadSubmitted(false); setShowPremiumModal(true); }}
+            className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold py-2 rounded-lg transition-colors shadow"
+          >
+            Upgrade Plan
+          </button>
         </div>
+      )}
+    </nav>
+  );
 
-        <div id="tab-dashboard" class="tab-view space-y-6 text-left">
-          <div id="dashboard-auth-block" class="bg-[#090d16] p-6 rounded-2xl border border-indigo-950 max-w-md mx-auto space-y-4 shadow-sm text-left">
-            <div class="text-center">
-              <i class="fa-solid fa-book-open text-indigo-400 text-3xl mb-2"></i>
-              <h2 class="text-lg font-bold text-white">Welcome to the Student Lounge</h2>
-              <p class="text-xs text-slate-300">Access targeted Kerala DHSE & SCERT board past resources easily.</p>
+  const getPlanFeatureHighlights = (planName) => {
+    switch (planName) {
+      case 'Silver':
+        return [
+          "Complete Ad-Free browsing environment",
+          "50 Advanced local AI Notes credits / mo",
+          "Standard school model paper download access"
+        ];
+      case 'Gold':
+        return [
+          "Silver access features completely unlocked",
+          "Unlimited dynamic AI Notes generation",
+          "Private study circle collaboration rooms access",
+          "Live counseling seminar reservation options"
+        ];
+      case 'Platinum':
+        return [
+          "All features of Silver and Gold tiers included",
+          "Premium Pro Resume & Portfolio Builder tools unlocked",
+          "1-on-1 WhatsApp assistance channel with expert mentors",
+          "Custom entrance level mock exam papers formulated"
+        ];
+      default:
+        return ["Select a plan tier to view unique features dynamically."];
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0b0f19] text-slate-100 flex flex-col md:flex-row font-sans selection:bg-indigo-500 selection:text-white relative">
+      
+      {/* =========================================================================
+           PROFESSIONAL INTRO LOADER (REACT RENDER LAYER SYSTEM SYNC)
+           ========================================================================= */}
+      {isIntroLoading && (
+        <div className="fixed inset-0 z-50 bg-[#090d16] flex flex-col justify-center items-center p-6 transition-all duration-700">
+          <div className="text-center space-y-6 max-w-md animate-scaleUp">
+            <div className="mx-auto w-24 h-24 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 p-0.5 animate-logoGlow flex items-center justify-center shadow-lg">
+              <div class="w-full h-full bg-[#0b1329] rounded-2xl flex items-center justify-center">
+                <BookOpen size={40} className="text-indigo-400" />
+              </div>
             </div>
-
-            <div class="flex border-b border-indigo-950">
-              <button onclick="changeAuthMode('login')" id="btn-auth-login" class="flex-1 pb-2 text-sm font-bold border-b-2 border-indigo-500 text-indigo-400">
-                Quick Login
-              </button>
-              <button onclick="changeAuthMode('register')" id="btn-auth-register" class="flex-1 pb-2 text-sm font-bold text-slate-400">
-                Register Account
-              </button>
-            </div>
-
-            <form id="auth-login-form" onsubmit="handleStudentLoginSubmit(event)" class="space-y-3 text-left text-xs">
-              <div>
-                <label class="font-bold text-slate-300">Username ID</label>
-                <input type="text" id="login-username" placeholder="e.g. rahul_nair" class="w-full bg-[#0b1329] border border-indigo-950 rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white mt-1">
-              </div>
-              <div>
-                <label class="font-bold text-slate-300">Password</label>
-                <input type="password" id="login-password" placeholder="••••••••" class="w-full bg-[#0b1329] border border-indigo-950 rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white mt-1">
-              </div>
-              <div class="flex items-center space-x-2 pt-1">
-                <input type="checkbox" id="remember-me" class="rounded text-indigo-600 bg-slate-900 border-slate-700 cursor-pointer" checked>
-                <label for="remember-me" class="text-[11px] text-slate-300 font-semibold cursor-pointer select-none">Remember Me</label>
-              </div>
-              <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 rounded-lg transition-colors shadow">
-                Log In
-              </button>
-            </form>
-
-            <form id="auth-register-form" onsubmit="handleStudentRegisterSubmit(event)" class="space-y-3 text-left text-xs hidden">
-              <div>
-                <label class="font-bold text-slate-300">Desired Username ID</label>
-                <input type="text" id="register-username" placeholder="e.g. jishnu_tvm" class="w-full bg-[#0b1329] border border-indigo-950 rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white mt-1" required>
-              </div>
-              <div>
-                <label class="font-bold text-slate-300">Full Student Name</label>
-                <input type="text" id="register-name" placeholder="e.g. Jishnu Prasad" class="w-full bg-[#0b1329] border border-indigo-950 rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white mt-1" required>
-              </div>
-              <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-lg transition-colors shadow">
-                Register & Enter
-              </button>
-            </form>
-          </div>
-
-          <div id="dashboard-secured-view" class="space-y-6">
-            <div class="bg-gradient-to-r from-indigo-950 to-indigo-900 text-white p-6 rounded-2xl relative overflow-hidden shadow-md text-left">
-              <h2 class="text-xl md:text-2xl font-black flex items-center gap-1.5">
-                <i class="fa-solid fa-wand-magic-sparkles text-amber-350 animate-pulse"></i>
-                <span>Let's Start Learning, <span id="hero-display-name">Rahul Nair</span>!</span>
-              </h2>
-              <p class="text-xs text-indigo-100 leading-relaxed mt-2">
-                Syllabus masterclasses, premium mock exams, dynamic study note generator, and referral reward systems are now structured in one comprehensive space.
+            
+            <div className="space-y-2">
+              <h1 className="text-3xl font-black tracking-tight text-white">
+                Welcome to <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">EduNexa Hub</span>
+              </h1>
+              <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest">
+                Syllabus & Master Exam Companion
               </p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="bg-[#090d16] p-5 rounded-2xl border border-indigo-955 space-y-3 shadow-md">
-                <h3 class="text-xs font-black text-indigo-400 uppercase tracking-wider">Platform Safety Guideline</h3>
-                <p class="text-xs text-slate-300">Keep standard academic community guidelines clean and active during public learning interaction groups.</p>
-              </div>
+            <div className="w-48 h-1 bg-[#1e293b] rounded-full mx-auto overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 w-1/3 rounded-full animate-pulse" style={{ animation: "loadingProg 1.5s infinite linear" }}></div>
+            </div>
+            <p className="text-[10px] text-slate-500 font-semibold italic">Initializing student lounge database...</p>
+          </div>
+        </div>
+      )}
 
-              <div class="bg-[#090d16] p-5 rounded-2xl border border-indigo-955 space-y-3 flex flex-col justify-between shadow-md">
-                <div>
-                  <h3 class="text-xs font-black text-indigo-400 uppercase tracking-wider">Free Premium Access Referral</h3>
-                  <p class="text-xs text-slate-300 mt-1">Invite friends and collect 450 points to instantly redeem 1 Month of Silver Plan for completely Free.</p>
+      {/* Toast alert system */}
+      {toast.show && (
+        <div className="fixed bottom-5 right-5 z-50 animate-bounce">
+          <div className={`p-4 rounded-xl shadow-lg flex items-center space-x-2 border text-white ${
+            toast.type === 'error' ? 'bg-red-600 border-red-700' : 'bg-emerald-600 border-emerald-700'
+          }`}>
+            <CheckCircle size={18} />
+            <span className="text-sm font-semibold">{toast.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* --- GLASSMORPHISM PREMIUM MODAL WITH LEAD COLLECTION & DYNAMIC FEATURES --- */}
+      {showPremiumModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex justify-center items-center p-4 overflow-y-auto">
+          <div className="bg-[#111827]/90 border border-indigo-500/30 rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative animate-scaleUp text-left">
+            
+            <button 
+              onClick={() => setShowPremiumModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200"
+            >
+              <X size={20} />
+            </button>
+
+            {!leadSubmitted ? (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400">
+                    <Star size={26} className="fill-amber-400 animate-pulse" />
+                  </div>
+                  <h3 className="text-xl font-black text-white">Join EduNexa Premium Club</h3>
+                  <p class="text-xs text-slate-300">Syllabus crash prep courses, ad-free downloads, and continuous expert support channels.</p>
                 </div>
-                <div class="bg-slate-950 p-3 rounded-xl border border-indigo-900/30 text-center mt-2">
-                  <span id="dashboard-referral-code" class="text-sm font-black text-indigo-400 font-mono tracking-widest block">RAHUL150</span>
+
+                <div className="grid grid-cols-3 gap-2.5">
+                  {[
+                    { key: 'Silver', price: '₹149' },
+                    { key: 'Gold', price: '₹299' },
+                    { key: 'Platinum', price: '₹499' }
+                  ].map((pOpt) => (
+                    <button
+                      key={pOpt.key}
+                      type="button"
+                      onClick={() => setPremiumLeadForm({ ...premiumLeadForm, selectedPlan: pOpt.key })}
+                      className={`p-3 rounded-xl border text-center transition-all ${
+                        premiumLeadForm.selectedPlan === pOpt.key 
+                          ? 'bg-[#4f46e5] border-indigo-400 text-white font-black shadow-md' 
+                          : 'bg-slate-950/40 border-[#1e293b] text-slate-405 hover:border-indigo-900'
+                      }`}
+                    >
+                      <span className="text-[10px] block uppercase tracking-wider">{pOpt.key}</span>
+                      <span className="text-sm font-bold block">{pOpt.price}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="bg-indigo-950/30 border border-indigo-500/20 p-4 rounded-xl space-y-2">
+                  <span className="text-[10px] font-black text-indigo-450 uppercase tracking-widest block">
+                    Uniquely Unlocked with {premiumLeadForm.selectedPlan} Tier:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {getPlanFeatureHighlights(premiumLeadForm.selectedPlan).map((feat, idx) => (
+                      <div key={idx} className="flex items-start gap-1.5 text-[11px] text-slate-300">
+                        <CheckCircle size={12} className="text-emerald-400 mt-0.5 flex-shrink-0" />
+                        <span>{feat}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <form onSubmit={handleLeadSubmit} className="space-y-3.5">
+                  <h4 className="text-xs font-bold text-slate-305 uppercase tracking-wider">Fill Contact Details to Choose Payment Plan</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">Student Full Name</label>
+                      <input 
+                        type="text" 
+                        value={premiumLeadForm.name || ''} 
+                        onChange={(e) => setPremiumLeadForm({...premiumLeadForm, name: e.target.value})}
+                        className="w-full text-xs bg-slate-950 border border-[#1e293b] rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white" 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">Email Address</label>
+                      <input 
+                        type="email" 
+                        value={premiumLeadForm.email || ''} 
+                        onChange={(e) => setPremiumLeadForm({...premiumLeadForm, email: e.target.value})}
+                        className="w-full text-xs bg-slate-950 border border-[#1e293b] rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white" 
+                        required 
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">Phone Number</label>
+                      <input 
+                        type="tel" 
+                        value={premiumLeadForm.phone || ''} 
+                        onChange={(e) => setPremiumLeadForm({...premiumLeadForm, phone: e.target.value})}
+                        className="w-full text-xs bg-slate-950 border border-[#1e293b] rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white" 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">WhatsApp Number</label>
+                      <input 
+                        type="tel" 
+                        value={premiumLeadForm.whatsapp || ''} 
+                        onChange={(e) => setPremiumLeadForm({...premiumLeadForm, whatsapp: e.target.value})}
+                        className="w-full text-xs bg-slate-950 border border-[#1e293b] rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white" 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">Class / Batch</label>
+                      <input 
+                        type="text" 
+                        value={premiumLeadForm.className || ''} 
+                        onChange={(e) => setPremiumLeadForm({...premiumLeadForm, className: e.target.value})}
+                        className="w-full text-xs bg-slate-950 border border-[#1e293b] rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white" 
+                        required 
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-1"
+                  >
+                    <Lock size={14} />
+                    <span>Securely Pay via Razorpay Integration</span>
+                  </button>
+                </form>
+
+                <div className="bg-indigo-955/40 p-3 rounded-xl border border-indigo-900/30">
+                  <p className="text-[11px] text-slate-300 italic">"I unlocked Silver premium access through our referral rewards system. The past entrance papers and physics prep notes have been incredibly helpful!"</p>
+                  <span className="text-[9px] text-slate-400 block text-right mt-1">- Karthika, Plus Two Science Student, Kochi</span>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
+            ) : (
+              <div className="text-center space-y-6 py-6">
+                <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                  <CheckCircle size={32} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-black text-white">Application Received Successfully!</h3>
+                  <p className="text-xs text-slate-300">Our admissions and premium enrollment team has registered your interest (Class: {premiumLeadForm.className}).</p>
+                </div>
 
-        <div id="tab-ai-notes" class="tab-view space-y-6 text-left hidden">
-          <div class="bg-[#090d16] p-6 rounded-2xl border border-indigo-955 space-y-4 shadow-md">
-            <h2 class="text-base font-bold text-white">StudyVerse Local AI Research Assistant</h2>
-            <p class="text-xs text-slate-300 font-semibold">Type a topic keyword to instantly render high-quality study outlines.</p>
-            <div class="flex flex-col sm:flex-row gap-2">
-              <input type="text" id="ai-prompt-input" placeholder="E.g., Wave optics Huygens derivation..." class="flex-1 text-xs rounded-lg p-2.5 outline-none">
-              <button onclick="triggerAINotesGen()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2.5 rounded-lg flex items-center gap-1">
-                <i class="fa-solid fa-sparkles text-amber-300"></i> Generate
-              </button>
-            </div>
-          </div>
-        </div>
+                <div className="space-y-3 pt-2">
+                  <p className="text-[11px] text-slate-400">Click below to communicate directly with our academic support advisors via WhatsApp:</p>
+                  <a 
+                    href={`https://wa.me/919876543210?text=Hi%20EduNexa,%20I%20have%20registered%20my%20interest%20to%20join%20the%20premium%20membership%20plan.%20My%20Name%3A%20${premiumLeadForm.name}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow"
+                  >
+                    <MessageCircle size={16} />
+                    <span>Contact Support via WhatsApp</span>
+                  </a>
+                </div>
 
-        <div id="tab-papers" class="tab-view space-y-6 text-left hidden">
-          <div class="bg-[#090d16] p-6 rounded-2xl border border-indigo-955 space-y-4 shadow-md">
-            <h2 class="text-base font-bold text-white">Kerala Board Mock Test Papers</h2>
-            <p class="text-xs text-slate-300">Download recent custom-designed engineering and medical board track sample exams.</p>
-            <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
-              <div>
-                <p class="text-xs font-bold text-white">DHSE Plus Two Physics Sample (2026)</p>
-                <p class="text-[10px] text-slate-400">File Type: PDF | Size: 2.4 MB</p>
+                <div className="pt-4">
+                  <button 
+                    onClick={() => { setShowPremiumModal(false); setLeadSubmitted(false); }} 
+                    className="text-xs text-slate-505 underline"
+                  >
+                    Go Back to Lounge
+                  </button>
+                </div>
               </div>
-              <button onclick="openPremiumModal()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold">
-                Download
-              </button>
-            </div>
+            )}
+
           </div>
         </div>
+      )}
 
+      {/* Mobile Header */}
+      <div className="md:hidden bg-[#0b0f19] p-4 flex justify-between items-center sticky top-0 z-20 border-b border-indigo-950">
+        <div className="flex items-center space-x-2 text-indigo-400 font-bold text-xl cursor-pointer" onClick={handleSecretClick}>
+          <BookOpen size={24} />
+          <span>EduNexa Hub</span>
+        </div>
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-400">
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
       </div>
-    </main>
-  </div>
 
-  <script>
-    // =========================================================================
-    // RAZORPAY INTEGRATION & ROUTING CONFIGURATIONS
-    // =========================================================================
-    const RAZORPAY_KEY_ID = "YOUR_RAZORPAY_KEY_ID"; 
+      {/* Sidebar */}
+      <aside className={`
+        ${isMobileMenuOpen ? 'fixed inset-0 z-10 bg-[#0b0f19] pt-20 px-4' : 'hidden'} 
+        md:block md:w-64 bg-[#0b0f19] border-r border-[#1e293b] h-screen sticky top-0 flex-shrink-0 p-4 shadow-sm overflow-y-auto
+      `}>
+        <div 
+          onClick={handleSecretClick}
+          className="hidden md:flex items-center space-x-2 text-indigo-400 font-bold text-lg mb-6 px-2 mt-2 cursor-pointer select-none"
+          title="Operator Admin Console link"
+        >
+          <BookOpen size={22} className="text-indigo-400 animate-pulse" />
+          <span>EduNexa Hub</span>
+        </div>
+        <Navigation />
+      </aside>
 
-    let activeProfile = {
-      uid: "rahul_nair_123",
-      username: "rahul_nair",
-      name: "Rahul Nair",
-      email: "rahul@edunexa.com",
-      isPremium: false,
-      tier: "Free"
-    };
+      {/* Main Content View */}
+      <main className="flex-1 p-4 md:p-6 overflow-y-auto max-w-6xl mx-auto w-full flex flex-col justify-between">
+        
+        <div className="space-y-6">
+          
+          {/* Header bar containing dynamic details */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 bg-slate-900 p-4 rounded-xl border border-[#1e293b] gap-4">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-400`}>
+                  {isOwnerAuthenticated ? 'Platform Admin' : 'Student Lounge'}
+                </span>
+                <span className="text-xs text-slate-400">Representative Director: <strong>{ownerName || ''}</strong></span>
+              </div>
+              <h1 className="text-xl font-black text-white capitalize flex items-center mt-1">
+                {activeTab.replace('-', ' ')}
+              </h1>
+            </div>
 
-    let selectedPlanTier = "Gold";
-    let selectedPlanAmount = 299; 
+            <div className="flex items-center space-x-2">
+               {isPremium && (
+                 <span className="flex items-center bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full text-xs font-bold border border-amber-500/30">
+                   <Star size={12} className="mr-1 fill-amber-400 text-amber-400" /> Premium: {premiumTier.toUpperCase()}
+                 </span>
+               )}
+               
+               {isStudentLoggedIn ? (
+                 <div className="flex items-center space-x-2 bg-slate-950 border border-indigo-950 p-1.5 rounded-lg">
+                   <div className="text-right hidden sm:block">
+                     <p className="text-xs font-bold text-slate-200">{studentProfile.fullName || ''}</p>
+                     <p className="text-[9px] text-slate-500 font-medium">Points: <span className="text-amber-400 font-bold">{studentProfile.points} Pts</span></p>
+                   </div>
+                   <button 
+                     onClick={handleProfileLogout}
+                     className="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white px-2.5 py-1.5 rounded font-bold transition-all"
+                   >
+                     Logout
+                   </button>
+                 </div>
+               ) : (
+                 <button 
+                   onClick={() => { setActiveTab('dashboard'); setIsStudentLoggedIn(false); }}
+                   className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-md"
+                 >
+                   Sign In / Register
+                 </button>
+               )}
+            </div>
+          </div>
 
-    // Dynamic Navigation Routing Controller Engine
-    function navigateToTab(tabId) {
-      document.querySelectorAll('.tab-view').forEach(view => view.classList.add('hidden'));
-      const activeView = document.getElementById(`tab-${tabId}`);
-      if (activeView) activeView.classList.remove('hidden');
+          {/* --- VIEW ROUTING --- */}
+          
+          {/* DASHBOARD TAB */}
+          {activeTab === 'dashboard' && (
+            <div className="space-y-6 animate-fadeIn">
+              
+              {/* Student Auth screen */}
+              {!isStudentLoggedIn && (
+                <div className="bg-[#111827] p-6 rounded-2xl border border-slate-800 max-w-md mx-auto space-y-4 shadow-sm text-left">
+                  <div className="text-center">
+                    <BookOpen className="text-indigo-405 mx-auto mb-2" size={32} />
+                    <h2 className="text-lg font-bold text-white">Welcome to the Student Lounge</h2>
+                    <p className="text-xs text-slate-404">Access targeted Kerala DHSE & SCERT board past resources easily.</p>
+                  </div>
 
-      document.getElementById('active-tab-title').innerText = tabId.replace('-', ' ');
+                  <div className="flex border-b border-[#1e293b]">
+                    <button 
+                      onClick={() => setAuthMode('login')} 
+                      className={`flex-1 pb-2 text-sm font-bold ${authMode === 'login' ? 'border-b-2 border-indigo-500 text-indigo-400' : 'text-slate-500'}`}
+                    >
+                      Quick Login
+                    </button>
+                    <button 
+                      onClick={() => setAuthMode('register')} 
+                      className={`flex-1 pb-2 text-sm font-bold ${authMode === 'register' ? 'border-b-2 border-indigo-500 text-indigo-400' : 'text-slate-505'}`}
+                    >
+                      Register Account
+                    </button>
+                  </div>
 
-      // Reset dynamic nav focus indicator color status links
-      ['dashboard', 'ai-notes', 'papers'].forEach(id => {
-        const btn = document.getElementById(`nav-${id}`);
-        if(btn) {
-          if(id === tabId) {
-            btn.className = "w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg bg-indigo-600/20 text-indigo-400 font-bold transition-all text-left";
-          } else {
-            btn.className = "w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-900 hover:text-slate-200 transition-all text-left";
-          }
-        }
-      });
-    }
+                  {authMode === 'login' ? (
+                    <form onSubmit={handleStudentLoginSubmit} className="space-y-3 text-left text-xs">
+                      <div>
+                        <label className="font-bold text-slate-400">Username ID</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. rahul_nair" 
+                          value={loginForm.username || ''}
+                          onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
+                          className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white mt-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-bold text-slate-400">Password</label>
+                        <input 
+                          type="password" 
+                          placeholder="••••••••" 
+                          value={loginForm.password || ''}
+                          onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+                          className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white mt-1"
+                        />
+                      </div>
+                      
+                      {/* Secure Persistent login session check */}
+                      <div className="flex items-center space-x-2 pt-1">
+                        <input 
+                          type="checkbox" 
+                          id="remember-me-checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="rounded text-indigo-600 bg-slate-950 border-indigo-950 cursor-pointer"
+                        />
+                        <label htmlFor="remember-me-checkbox" className="text-[11px] text-slate-300 font-semibold cursor-pointer select-none">
+                          Remember Me (Keep me logged in on this device)
+                        </label>
+                      </div>
 
-    function openPremiumModal() {
-      document.getElementById("premium-modal").classList.remove("hidden");
-      document.getElementById("modal-step-lead").classList.remove("hidden");
-      document.getElementById("modal-step-success").classList.add("hidden");
-    }
+                      <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 rounded-lg transition-colors shadow">
+                        Log In
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleStudentRegisterSubmit} className="space-y-3 text-left text-xs">
+                      <div>
+                        <label className="font-bold text-slate-400">Desired Username ID</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. jishnu_tvm" 
+                          value={registerForm.username || ''}
+                          onChange={(e) => setRegisterForm({...registerForm, username: e.target.value})}
+                          className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white mt-1"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="font-bold text-slate-400">Full Student Name</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Jishnu Prasad" 
+                          value={registerForm.fullName || ''}
+                          onChange={(e) => setRegisterForm({...registerForm, fullName: e.target.value})}
+                          className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white mt-1"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="font-bold text-slate-400 block">Phone Number</label>
+                        <input 
+                          type="tel" 
+                          placeholder="e.g. +91 94470 12345" 
+                          value={registerForm.phone || ''}
+                          onChange={(e) => setRegisterForm({...registerForm, phone: e.target.value})}
+                          className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white mt-1"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="font-bold text-slate-400 block">WhatsApp Number (Contact safety)</label>
+                        <input 
+                          type="tel" 
+                          placeholder="e.g. +91 94470 12345" 
+                          value={registerForm.whatsapp || ''}
+                          onChange={(e) => setRegisterForm({...registerForm, whatsapp: e.target.value})}
+                          className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white mt-1"
+                        />
+                      </div>
 
-    // Modal UI State Closures Trigger Action
-    function closePremiumModal() {
-      document.getElementById("premium-modal").classList.add("hidden");
-    }
+                      <div className="flex items-center space-x-2 pt-1">
+                        <input 
+                          type="checkbox" 
+                          id="register-remember-me-checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="rounded text-indigo-600 bg-slate-950 border-indigo-950 cursor-pointer"
+                        />
+                        <label htmlFor="register-remember-me-checkbox" className="text-[11px] text-slate-303 font-semibold cursor-pointer select-none">
+                          Remember Me (Keep me logged in on this device)
+                        </label>
+                      </div>
 
-    function selectPlanTier(tier) {
-      selectedPlanTier = tier;
-      if (tier === 'Silver') selectedPlanAmount = 149;
-      else if (tier === 'Gold') selectedPlanAmount = 299;
-      else if (tier === 'Platinum') selectedPlanAmount = 499;
-      
-      ['Silver', 'Gold', 'Platinum'].forEach(t => {
-        const btn = document.getElementById(`btn-tier-${t}`);
-        if(btn) {
-          if(t === tier) {
-            btn.className = "p-3 rounded-xl border text-center transition-all bg-indigo-600 border-indigo-400 text-white font-black shadow-md";
-          } else {
-            btn.className = "p-3 rounded-xl border text-center transition-all bg-[#090d16] border-slate-700 text-slate-300 hover:border-indigo-400";
-          }
-        }
-      });
-      document.getElementById('display-selected-plan-name').innerText = tier;
-    }
+                      <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-lg transition-colors shadow">
+                        Register & Enter
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
 
-    // HANDLER FOR FORM SUBMISSION & PAYMENT GATEWAY TRIGGER
-    async function handleLeadFormSubmit(event) {
-      event.preventDefault(); 
+              {/* Dashboard Student Intro Banner */}
+              <div className="bg-gradient-to-r from-indigo-955 to-indigo-900 text-white p-6 rounded-2xl relative overflow-hidden shadow-md text-left border border-indigo-900/40 animate-slideUp">
+                <div className="relative z-10 max-w-lg space-y-2">
+                  <h2 className="text-xl md:text-2xl font-black flex items-center gap-1">
+                    <Sparkles className="text-amber-400" />
+                    <span>Let's Start Learning, {studentProfile.fullName || ''}!</span>
+                  </h2>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Syllabus masterclasses, premium mock exams, dynamic study note generator, and referral reward systems are now structured in one comprehensive space.
+                  </p>
+                  <p className="text-[10px] text-indigo-200">Registered Mobile: <span className="font-semibold text-white">{studentProfile.phone || ''}</span></p>
+                  
+                  {/* REFERRAL POINTS SHORTCUT DISPLAY */}
+                  <div className="flex items-center gap-2 pt-2 flex-wrap">
+                    <span className="text-[10px] bg-slate-950 border border-indigo-800 text-amber-400 font-bold px-3 py-1 rounded-full">
+                      Points Balance: {studentProfile.points} Pts
+                    </span>
+                    <button 
+                      onClick={() => setActiveTab('referrals')}
+                      className="text-[10px] bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30 font-bold px-3 py-1 rounded-full transition-all"
+                    >
+                      Invite Friends (Earn Points)
+                    </button>
+                  </div>
 
-      const studentName = document.getElementById("lead-name").value;
-      const studentEmail = document.getElementById("lead-email").value;
-      const studentPhone = document.getElementById("lead-phone").value;
-      
-      const options = {
-        "key": RAZORPAY_KEY_ID,
-        "amount": (selectedPlanAmount * 100).toString(), 
-        "currency": "INR",
-        "name": "EduNexa Hub",
-        "description": `Premium ${selectedPlanTier} Plan Membership`,
-        "image": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/book-open.svg",
-        "handler": async function (response) {
-          if (response.razorpay_payment_id) {
-            showToast("Payment Successful! Activating Premium...", "success");
-            
-            activeProfile.isPremium = true;
-            activeProfile.tier = selectedPlanTier;
-            
-            const indicator = document.getElementById("premium-status-indicator");
-            if (indicator) {
-              indicator.innerHTML = `<i class="fa-solid fa-star mr-1 text-amber-400 animate-pulse"></i> Premium: ${selectedPlanTier}`;
-              indicator.classList.remove("hidden");
-            }
+                  <div className="flex flex-wrap gap-2 pt-3">
+                    <button onClick={() => setActiveTab('ai-notes')} className="bg-white text-indigo-950 text-xs font-bold px-4 py-2 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-1 shadow">
+                      <Zap size={14} className="text-amber-500 fill-amber-400" /> Start AI Notes
+                    </button>
+                    <button onClick={() => setActiveTab('papers')} className="bg-indigo-500/20 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-indigo-500/40 transition-colors flex items-center gap-1">
+                      <FileText size={14} /> Browse Papers
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-            document.getElementById("modal-step-lead").classList.add("hidden");
-            document.getElementById("modal-step-success").classList.remove("hidden");
-            
-            const messageString = window.encodeURIComponent(`Hi EduNexa Hub, I upgraded to Premium ${selectedPlanTier}. Payment ID: ${response.razorpay_payment_id}`);
-            document.getElementById("whatsapp-direct-link").href = `https://wa.me/917593062573?text=${messageString}`;
-          }
-        },
-        "prefill": {
-          "name": studentName || activeProfile.name,
-          "email": studentEmail || activeProfile.email,
-          "contact": studentPhone || ""
-        },
-        "theme": { "color": "#6366f1" },
-        "modal": {
-          "ondismiss": function() {
-            showToast("Payment window dismissed.", "error");
-          }
-        }
-      };
+              {/* --- AD PLACEMENT: BELOW HERO BANNER --- */}
+              <AdBanner slotId={adSlotBelowHero} />
 
-      const rzp = new Razorpay(options);
-      rzp.open();
-    }
+              {/* Platform Guidelines & Rules displayed on page */}
+              <div className="bg-slate-900 p-5 rounded-2xl border border-[#1e293b] text-left space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-400 uppercase tracking-widest border-b border-[#1e293b]/40 pb-2">
+                  <Info size={15} />
+                  <span>Platform Safety & Community Code of Conduct</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {platformRules.map((rObj) => (
+                    <div key={rObj.id} className="p-3 bg-[#0b0f19]/60 rounded-xl border border-indigo-900/30 space-y-1">
+                      <span className="text-[8px] bg-indigo-950 border border-indigo-800 text-indigo-300 font-bold px-2 py-0.5 rounded-full uppercase">
+                        {rObj.category}
+                      </span>
+                      <p className="text-[11px] text-slate-300 pt-1 leading-relaxed">
+                        {rObj.rule}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-    function showToast(message, type = "success") {
-      const toast = document.getElementById("toast-alert");
-      const box = document.getElementById("toast-box");
-      const msgSpan = document.getElementById("toast-message");
-      
-      if(!toast || !box || !msgSpan) return;
-      msgSpan.innerText = message;
-      
-      if(type === "error") {
-        box.className = "p-4 rounded-xl shadow-lg flex items-center space-x-2 border text-white bg-red-600 border-red-700";
-      } else {
-        box.className = "p-4 rounded-xl shadow-lg flex items-center space-x-2 border text-white bg-emerald-600 border-emerald-700";
-      }
-      
-      toast.classList.remove("hidden");
-      setTimeout(() => toast.classList.add("hidden"), 4000);
-    }
+              {/* Coaching Center Ads & Live Lead Collection Widget */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                
+                {/* Active Coaching Center Offers */}
+                <div className="bg-[#111827] p-5 rounded-2xl border border-slate-800 space-y-3">
+                  <h3 className="text-xs font-black text-[#4f46e5] uppercase tracking-wider flex items-center gap-1">
+                    <Award size={14} />
+                    <span>State Coaching Center Advertisements</span>
+                  </h3>
+                  <div className="space-y-2.5">
+                    {coachingAds.map(ad => (
+                      <div key={ad.id} className="p-3 bg-slate-955 rounded-xl border border-indigo-900/30">
+                        <div className="flex justify-between items-start">
+                          <h4 class="text-xs font-bold text-slate-200">{ad.institute}</h4>
+                          <span className="text-[9px] bg-indigo-900/40 text-indigo-400 font-bold px-2 py-0.5 rounded">{ad.location}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-1">{ad.offer}</p>
+                        <p className="text-[10px] text-indigo-400 font-semibold mt-1">Helpline: {ad.phone}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-    function toggleMobileSidebar() {
-      const sidebar = document.getElementById("sidebar");
-      sidebar.classList.toggle("hidden");
-    }
+                {/* Micro Referral Banner on Dashboard */}
+                <div className="bg-[#111827] p-5 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-black text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                      <Share2 size={14} />
+                      <span>Free Premium Access referral</span>
+                    </h3>
+                    <p className="text-xs text-slate-300">Invite friends (earn 2 points each) and collect 450 points to redeem 1 Month of Silver Plan for completely Free.</p>
+                  </div>
+                  <div className="bg-slate-950 p-4 rounded-xl border border-indigo-900/30 text-center space-y-2">
+                    <p className="text-[11px] text-slate-400">Your Referral Code:</p>
+                    <span className="text-sm font-black text-[#4f46e5] font-mono tracking-widest block bg-slate-900 p-1 rounded border border-[#1e293b]">{studentProfile.referralCode}</span>
+                  </div>
+                  <button 
+                    onClick={redeemPointsForPremium}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 rounded-xl transition-all shadow-md"
+                  >
+                    Redeem Points (Need 450 Pts)
+                  </button>
+                </div>
 
-    function changeAuthMode(mode) {
-      if(mode === 'login') {
-        document.getElementById("auth-login-form").classList.remove("hidden");
-        document.getElementById("auth-register-form").classList.add("hidden");
-      } else {
-        document.getElementById("auth-login-form").classList.add("hidden");
-        document.getElementById("auth-register-form").classList.remove("hidden");
-      }
-    }
-  </script>
-</body>
-</html>
+              </div>
+
+              {/* Study Materials List */}
+              <div className="space-y-4 text-left">
+                <h3 className="text-base font-bold text-slate-200">Featured Study Materials</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {papers.map((paper) => (
+                    <div key={paper.id} className="bg-[#111827] p-4 rounded-xl border border-slate-800 flex flex-col justify-between hover:border-indigo-500 transition-all">
+                      <div>
+                        <span className="text-[9px] bg-indigo-900/40 text-indigo-400 font-bold px-2 py-0.5 rounded uppercase">{paper.board}</span>
+                        <h4 className="text-xs font-bold text-slate-200 mt-2 mb-1">{paper.title}</h4>
+                      </div>
+                      <button 
+                        onClick={() => { setViewingPaper(paper); setActiveTab('papers'); }} 
+                        className="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded font-bold flex items-center gap-1 mt-4 self-start"
+                      >
+                        <Eye size={12} /> Open Document
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* AI NOTES & STUDY GEN */}
+          {activeTab === 'ai-notes' && (
+            <div className="space-y-6 animate-fadeIn text-left">
+              <div className="bg-slate-900 p-6 rounded-2xl border border-indigo-950 space-y-4">
+                <div className="max-w-xl">
+                  <h2 className="text-base font-bold text-white">StudyVerse Local AI Research Assistant</h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Type a topic keyword (such as "optics", "organic chemistry", or "circle theorems") to instantly render high-quality, pre-compiled board exam study outlines.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input 
+                    type="text" 
+                    value={aiPrompt || ''}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="E.g., Wave optics Huygens derivation or SCERT Math Circle..."
+                    className="flex-1 text-xs bg-slate-950 border border-indigo-950 rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white font-medium"
+                  />
+                  <button 
+                    onClick={triggerAINotesGeneration}
+                    disabled={isGenerating}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow"
+                  >
+                    {isGenerating ? <RefreshCw className="animate-spin" size={14} /> : <Sparkles size={14} className="text-amber-300 fill-amber-300" />}
+                    <span>Generate Syllabus Notes</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* --- AD PLACEMENT: BETWEEN STUDY NOTES CONTENT --- */}
+              <AdBanner slotId={adSlotBetweenNotes} />
+
+              {/* AI Generator Output Box */}
+              {aiResult && (
+                <div className="bg-slate-900 rounded-2xl border border-[#1e293b] shadow-sm overflow-hidden animate-slideUp">
+                  <div className="bg-slate-950 border-b border-[#1e293b] px-4 py-3 flex justify-between items-center">
+                    <span className="text-xs font-bold text-indigo-400 flex items-center gap-1">
+                      <Sparkles size={14} className="text-amber-500" /> Output Outline
+                    </span>
+                    <button 
+                      onClick={() => triggerDownload(`AI_Notes_${aiPrompt.replace(/\s+/g, '_')}.txt`, aiResult)}
+                      className="text-[10px] bg-slate-900 hover:bg-slate-800 text-slate-200 border border-indigo-950 px-2.5 py-1 rounded font-bold flex items-center gap-1 shadow-sm"
+                    >
+                      <Download size={12} /> Save Raw Text
+                    </button>
+                  </div>
+                  <div className="p-6 bg-slate-900/30 overflow-y-auto max-h-[400px]">
+                    <pre className="text-xs text-slate-300 font-sans whitespace-pre-wrap leading-relaxed">
+                      {aiResult}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* PAID COURSES ACADEMY HUB */}
+          {activeTab === 'courses' && (
+            <div className="space-y-6 animate-fadeIn text-left">
+              <div className="bg-indigo-955/20 p-5 rounded-2xl border border-indigo-900/40">
+                <h2 className="text-base font-black text-white">EduNexa Academy Premium Batches</h2>
+                <p className="text-xs text-slate-300 mt-1">Learn from Kerala's most trusted teachers. Integrated online classes with real-time doubt clearing sessions.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {coursesList.map(course => (
+                  <div key={course.id} className="bg-slate-900 p-5 rounded-2xl border border-indigo-950 flex flex-col justify-between hover:border-indigo-500 transition-all">
+                    <div className="space-y-2">
+                      <span className="text-[9px] bg-indigo-900/50 text-indigo-300 font-bold px-2 py-0.5 rounded uppercase">{course.duration}</span>
+                      <h3 className="text-sm font-black text-slate-200">{course.title}</h3>
+                      <p className="text-xs text-slate-400">{course.desc}</p>
+                      <p className="text-[11px] text-slate-505 font-semibold">Mentor Teacher: {course.mentor}</p>
+                    </div>
+                    <div className="pt-4 mt-4 border-t border-indigo-955/30 flex justify-between items-center">
+                      <span className="text-sm font-black text-amber-400">{course.price}</span>
+                      <button 
+                        onClick={() => {
+                          setPremiumLeadForm(prev => ({ ...prev, selectedPlan: 'Gold' }));
+                          setShowPremiumModal(true);
+                          triggerToast(`Course registration initialized.`);
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all"
+                      >
+                        Enroll Now
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* REFERRAL SYSTEM HUB */}
+          {activeTab === 'referrals' && (
+            <div className="space-y-6 animate-fadeIn text-left">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Invite Friend Submission Form */}
+                <div className="bg-slate-900 p-5 rounded-2xl border border-indigo-955 space-y-4">
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-black text-indigo-405 uppercase tracking-wider">Invite Friends & Earn Points</h3>
+                    <p className="text-xs text-slate-300">Earn exactly 2 Points for every friend who registers using your secret link.</p>
+                    <p className="text-[10px] text-amber-400 font-bold"><Info size={10} className="inline mr-1" /> Daily limit of maximum 3 referrals per 24 hours.</p>
+                  </div>
+
+                  <form onSubmit={handleInviteFriend} className="space-y-3.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">Friend's Name</label>
+                      <input 
+                        type="text" 
+                        value={referFriendName}
+                        onChange={(e) => setReferFriendName(e.target.value)}
+                        placeholder="e.g. Abhirami Prasad"
+                        className="w-full text-xs bg-slate-950 border border-indigo-950 rounded-lg p-2.5 outline-none focus:border-indigo-500 text-white"
+                        required
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 rounded-lg shadow-md"
+                    >
+                      Generate Invitation Link & Credit Points
+                    </button>
+                  </form>
+                </div>
+
+                {/* Redeem Status */}
+                <div className="bg-slate-900 p-5 rounded-2xl border border-[#1e293b] flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-black text-amber-400 uppercase tracking-wider">Redeem Points</h3>
+                    <p className="text-xs text-slate-300">With the new point structure, you need 450 points (refer 225 friends) to redeem a free Month of Silver Premium Plan.</p>
+                  </div>
+                  
+                  <div className="bg-slate-955 p-4 rounded-xl border border-indigo-900/30 text-center">
+                    <p className="text-xs text-slate-500 font-semibold">Your Current Points Balance:</p>
+                    <span className="text-3xl font-black text-amber-400 block mt-1">{studentProfile.points} Pts</span>
+                  </div>
+
+                  <button 
+                    onClick={redeemPointsForPremium}
+                    className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 text-xs font-bold py-2.5 rounded-xl transition-all"
+                  >
+                    Redeem 1 Month Silver Access (Requires 450 Pts)
+                  </button>
+                </div>
+
+              </div>
+
+              {/* Invited Friends Progress List */}
+              <div className="bg-slate-900 p-5 rounded-2xl border border-indigo-955 space-y-3">
+                <h3 className="text-xs font-black text-slate-200 uppercase tracking-wider">Your Referral History</h3>
+                <div className="space-y-2">
+                  {invitedFriends.map(friend => (
+                    <div key={friend.id} className="p-3 bg-slate-950 rounded-xl border border-indigo-900/30 flex justify-between items-center text-xs">
+                      <div>
+                        <p className="font-bold text-slate-200">{friend.name}</p>
+                        <p className="text-[10px] text-slate-500">
+                          Invited: {new Date(friend.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Status: {friend.status}
+                        </p>
+                      </div>
+                      <span className="font-bold text-amber-400">+{friend.pointsEarned} Pts</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* KERALA QUESTION PAPERS */}
+          {activeTab === 'papers' && (
+            <div className="space-y-6 animate-fadeIn text-left">
+              
+              {/* Document Viewer Frame */}
+              {viewingPaper ? (
+                <div className="bg-slate-900 rounded-2xl border border-indigo-950 overflow-hidden">
+                  <div className="bg-slate-950 px-4 py-3 border-b border-indigo-950 flex flex-wrap justify-between items-center gap-2">
+                    <div>
+                      <span className="text-[9px] bg-indigo-900/40 text-indigo-404 font-bold px-2 py-0.5 rounded uppercase">{viewingPaper.board || ''}</span>
+                      <h3 className="text-sm font-bold text-slate-200 mt-1">{viewingPaper.title || ''} ({viewingPaper.year || ''})</h3>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button 
+                        onClick={() => triggerDownload(`Exam_Paper_${viewingPaper.title.replace(/\s+/g, '_')}.txt`, viewingPaper.content)}
+                        className="text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded font-bold flex items-center gap-1"
+                      >
+                        <Download size={12} /> Download (.txt)
+                      </button>
+                      <button 
+                        onClick={() => setViewingPaper(null)}
+                        className="text-[10px] text-slate-400 hover:text-slate-200 font-bold px-2 py-1.5"
+                      >
+                        Close Reader
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-6 bg-slate-950 text-slate-100 font-mono text-xs overflow-y-auto max-h-[500px] whitespace-pre-wrap leading-relaxed select-text">
+                    {viewingPaper.content}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* List of default syllabus papers */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 class="text-base font-bold text-slate-200">Available Paper Repository</h3>
+                  <span className="text-xs text-slate-505 font-semibold">{papers.length} materials matching school profile</span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                  {papers.map((paper) => (
+                    <div key={paper.id} className="bg-[#111827] p-4 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 hover:border-indigo-500 transition-all">
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2 flex-wrap gap-1">
+                          <span className="text-[9px] bg-indigo-900/40 text-indigo-400 font-bold px-2 py-0.5 rounded-full uppercase">{paper.board}</span>
+                          <span className="text-[9px] bg-slate-950 text-slate-400 font-semibold px-2 py-0.5 rounded-full border border-indigo-950">Year {paper.year}</span>
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-200">{paper.title}</h4>
+                      </div>
+                      <button 
+                        onClick={() => { setViewingPaper(paper); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1 transition-colors self-start sm:self-auto"
+                      >
+                        <Eye size={14} /> Open Reader
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ONLINE MOCK TESTS */}
+          {activeTab === 'mock-tests' && (
+            <div className="space-y-6 animate-fadeIn text-left">
+              {!selectedMockExam ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {mockTestLibrary.map((exam) => (
+                      <div key={exam.id} className="bg-[#111827] p-5 rounded-xl border border-slate-800 flex flex-col justify-between hover:border-indigo-500 transition-all">
+                        <div className="space-y-1">
+                          <span className="text-[9px] bg-indigo-900/40 text-indigo-400 font-bold px-2 py-0.5 rounded-full uppercase">Practice Exam</span>
+                          <h4 className="text-sm font-bold text-slate-200 pt-1">{exam.title}</h4>
+                        </div>
+                        <div className="pt-3 border-t border-indigo-955/30 flex justify-between items-center">
+                          <button 
+                            onClick={() => {
+                              setSelectedMockExam(exam);
+                              setMockAnswers({});
+                              setMockScore(null);
+                              triggerToast(`Started Mock: ${exam.title}`);
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg"
+                          >
+                            <Play size={12} /> Start Mock
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-900 p-6 rounded-2xl border border-indigo-950 shadow-sm space-y-6">
+                  <div className="flex justify-between items-center pb-3 border-b border-indigo-950/40">
+                    <h3 className="text-base font-bold text-slate-200">{selectedMockExam.title}</h3>
+                    <button onClick={() => { setSelectedMockExam(null); setMockScore(null); }} className="text-xs text-slate-400 underline">
+                      Exit Exam
+                    </button>
+                  </div>
+
+                  {mockScore === null ? (
+                    <div className="space-y-5">
+                      {selectedMockExam.questions.map((qObj, idx) => (
+                        <div key={idx} className="space-y-2 p-4 bg-slate-955 rounded-xl border border-indigo-955/30">
+                          <p className="text-xs font-bold text-slate-200">Q{idx + 1}. {qObj.q}</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                            {qObj.options.map((opt) => (
+                              <label key={opt} className={`flex items-center space-x-2 p-2.5 rounded-lg border text-xs cursor-pointer ${mockAnswers[idx] === opt ? 'bg-[#4f46e5] border-indigo-400 text-white' : 'bg-slate-900 border-indigo-955 text-slate-404'}`}>
+                                <input type="radio" checked={mockAnswers[idx] === opt} onChange={() => setMockAnswers({...mockAnswers, [idx]: opt})} />
+                                <span>{opt}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      <button onClick={submitMockTest} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-6 rounded-lg">
+                        Submit answers
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <Award size={32} className="mx-auto text-emerald-500" />
+                      <h4 className="text-lg font-bold mt-2">Exam assessment complete</h4>
+                      <p className="text-2xl font-black text-indigo-400 mt-4">{mockScore.score} / {mockScore.total}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STUDY CIRCLE & CHAT */}
+          {activeTab === 'groups' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left animate-fadeIn">
+              <div className="lg:col-span-1 space-y-4">
+                <div className="bg-slate-900 p-4 rounded-xl border border-indigo-955 shadow-sm">
+                  <h3 className="text-sm font-bold text-slate-200 mb-2">Weekly Goals</h3>
+                  <div className="space-y-3">
+                    {studyPlans.map(plan => (
+                      <div key={plan.id} onClick={() => handlePlanToggle(plan.id)} className="p-2.5 bg-slate-955 rounded-lg border border-indigo-955 cursor-pointer flex items-center space-x-2">
+                        <input type="checkbox" checked={plan.completed} readOnly />
+                        <span className={`text-xs ${plan.completed ? 'line-through text-slate-500' : 'text-slate-300 font-semibold'}`}>{plan.task}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-2 bg-slate-900 rounded-2xl border border-indigo-955 shadow-sm flex flex-col justify-between h-[400px]">
+                <div className="bg-slate-950 px-4 py-3 border-b border-indigo-955/40 flex justify-between items-center">
+                  <h3 className="text-xs font-bold text-slate-200">Kerala Prep Room Chat</h3>
+                </div>
+                <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                  {groupChat.length === 0 ? (
+                    <div className="text-center text-xs text-slate-505 py-10 font-bold">
+                      No messages yet. Send a message to start the study conversation!
+                    </div>
+                  ) : (
+                    groupChat.map((msg, idx) => (
+                      <div key={idx} className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-[10px] font-bold text-indigo-400">{msg.sender}</span>
+                          <span className="text-[8px] text-slate-505">{msg.time}</span>
+                        </div>
+                        <p className="bg-slate-955 p-2.5 rounded-xl border border-indigo-955/30 text-xs text-slate-300">{msg.text}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <form onSubmit={sendGroupMessage} className="p-3 border-t border-indigo-950/40 flex space-x-2 bg-slate-950">
+                  <input type="text" value={chatMessage} onChange={(e) => setChatMessage(e.target.value)} placeholder="Type a message..." className="flex-1 text-xs bg-slate-900 border border-indigo-950 rounded-lg p-2 outline-none text-white focus:border-indigo-500" />
+                  <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg"><Send size={14} /></button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* RESUME & PORTFOLIO BUILDER */}
+          {activeTab === 'portfolio' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left animate-fadeIn">
+              <div className="bg-slate-900 p-6 rounded-2xl border border-indigo-955 space-y-4">
+                <h3 className="text-sm font-bold text-slate-200">Fill Portfolio Details</h3>
+                <div class="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400">Student Name</label>
+                    <input type="text" value={resumeData.name || ''} onChange={(e) => setResumeForm({...resumeData, name: e.target.value})} className="w-full text-xs bg-slate-950 border border-indigo-950 rounded-lg p-2.5 outline-none text-white focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400">Phone</label>
+                    <input type="text" value={resumeData.phone || ''} onChange={(e) => setResumeForm({...resumeData, phone: e.target.value})} className="w-full text-xs bg-slate-950 border border-indigo-950 rounded-lg p-2.5 outline-none text-white focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400">Email</label>
+                    <input type="text" value={resumeData.email || ''} onChange={(e) => setResumeForm({...resumeData, email: e.target.value})} className="w-full text-xs bg-slate-950 border border-indigo-950 rounded-lg p-2.5 outline-none text-white focus:border-indigo-500" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <button onClick={downloadStudentResume} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-1 shadow">
+                  <Download size={14} /> Download Portfolio
+                </button>
+                <div className="bg-slate-900 p-6 rounded-2xl border border-indigo-955 text-xs">
+                  <h4 className="font-bold text-center border-b border-indigo-950 pb-2 uppercase text-white">{resumeData.name || ''}</h4>
+                  <p className="mt-2 text-slate-300">Phone: {resumeData.phone || ''}</p>
+                  <p className="text-slate-300">Email: {resumeData.email || ''}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SCHOLARSHIPS HUB */}
+          {activeTab === 'scholarships' && (
+            <div className="space-y-6 animate-fadeIn text-left">
+              <div className="bg-slate-900 p-4 rounded-xl border border-indigo-955 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Live database sync</h3>
+                  <h4 className="text-sm font-bold text-slate-200">Higher Education Grants & Scholarship Funds</h4>
+                </div>
+                <button 
+                  onClick={triggerScholarshipSync}
+                  disabled={isSyncingScholarships}
+                  className="bg-indigo-600 text-white text-xs font-bold py-2 px-4 rounded-lg flex items-center gap-1.5 shadow transition-colors"
+                >
+                  {isSyncingScholarships ? <RefreshCw className="animate-spin" size={14} /> : <RefreshCw size={14} />}
+                  <span>Fetch Live Grants</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {scholarships.map((schol) => (
+                  <div key={schol.id} className="bg-slate-900 p-5 rounded-xl border border-indigo-955 flex flex-col justify-between hover:border-indigo-500 transition-all">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-start">
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded uppercase">{schol.amount}</span>
+                        <span className="text-[10px] text-red-400 font-semibold flex items-center gap-1">
+                          <Clock size={10} /> Deadline: {schol.deadline}
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-black text-slate-200">{schol.title}</h4>
+                      <p className="text-xs text-slate-400 leading-relaxed pt-1">{schol.description}</p>
+                    </div>
+                    <div className="pt-4 mt-3 border-t border-indigo-955/30 flex justify-end">
+                      <button 
+                        onClick={() => handleApplyNowRedirect(schol)}
+                        className="bg-indigo-900/40 hover:bg-indigo-900/80 text-indigo-300 text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <span>Check Application Site</span>
+                        <ExternalLink size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TOOLS TAB */}
+          {activeTab === 'tools' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left animate-fadeIn">
+              
+              {/* Countdown widget */}
+              <div className="bg-slate-900 p-6 rounded-2xl border border-[#1e293b] shadow-sm space-y-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-slate-200">Board Exam Countdown</h3>
+                  <p className="text-xs text-slate-400">Track standard remaining time till board examinations begin on March 10th, 2027.</p>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="bg-[#0b0f19] p-3 rounded-lg border border-[#1e293b]">
+                    <span className="text-xl font-extrabold text-indigo-400 block">{timeLeft.days}</span>
+                    <span className="text-[9px] text-slate-405 font-bold uppercase">Days</span>
+                  </div>
+                  <div className="bg-[#0b0f19] p-3 rounded-lg border border-[#1e293b]">
+                    <span className="text-xl font-extrabold text-indigo-400 block">{timeLeft.hours}</span>
+                    <span className="text-[9px] text-slate-405 font-bold uppercase">Hours</span>
+                  </div>
+                  <div className="bg-[#0b0f19] p-3 rounded-lg border border-[#1e293b]">
+                    <span className="text-xl font-extrabold text-indigo-400 block">{timeLeft.mins}</span>
+                    <span className="text-[9px] text-slate-405 font-bold uppercase">Minutes</span>
+                  </div>
+                  <div className="bg-[#0b0f19] p-3 rounded-lg border border-[#1e293b]">
+                    <span className="text-xl font-extrabold text-indigo-400 block">{timeLeft.secs}</span>
+                    <span className="text-[9px] text-slate-405 font-bold uppercase">Seconds</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Target Exam Date</label>
+                  <input 
+                    type="date" 
+                    value={examDate || ''}
+                    onChange={(e) => setExamDate(e.target.value)}
+                    className="w-full text-xs bg-slate-950 border border-indigo-950 rounded-lg p-2 text-white outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* GPA / Mark Calculator */}
+              <div className="bg-slate-900 p-6 rounded-2xl border border-[#1e293b] shadow-sm space-y-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-slate-200">State Syllabus Mark Analyzer</h3>
+                  <p className="text-xs text-slate-404">Calculate percentage conversions instantly.</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Obtained Mark Score</label>
+                    <input 
+                      type="number" 
+                      value={calcData.obtained || ''}
+                      onChange={(e) => setCalcData({...calcData, obtained: e.target.value})}
+                      placeholder="e.g. 540"
+                      className="w-full
